@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Manager PWA</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <meta name="theme-color" content="#2563eb" />
+  <link href="minimal.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-50 p-4">
+  <!-- Header -->
+  <header class="mb-4">
+    <h1 class="text-3xl font-bold text-center text-blue-600">Stock & Sales Manager</h1>
+  </header>
+
+  <!-- Export & Share Buttons -->
+  <section class="mb-4 flex justify-between">
+    <button onclick="exportData()" class="btn shadow">Export CSV</button>
+    <button onclick="shareCSV()" class="btn bg-green-600">Share via WhatsApp</button>
+  </section>
+
+ 
+
+  <!-- Dashboard -->
+  <section id="dashboard" class="mb-4 grid grid-cols-2 gap-4">
+    <div class="bg-white p-4 rounded shadow text-center">
+      <h2 class="text-sm font-semibold text-gray-500">Total Stock Items</h2>
+      <p id="totalItems" class="text-2xl font-bold text-blue-600">0</p>
+    </div>
+    <div class="bg-white p-4 rounded shadow text-center">
+      <h2 class="text-sm font-semibold text-gray-500">Today’s Sales</h2>
+      <p id="todaysSales" class="text-2xl font-bold text-green-600">0</p>
+    </div>
+    <div class="bg-white p-4 rounded shadow text-center">
+      <h3 class="text-sm text-gray-600">Profit</h3>
+      <p id="profit" class="text-xl font-bold">0</p>
+    </div>
+
+  </section>
+
+  <!-- Action Buttons -->
+ <div class="flex flex-col items-center gap-2 mt-4">
+    <button onclick="showAddStock()" class="btn w-40">Add Stock</button>
+    <button onclick="showRecordSale()" class="btn w-40 bg-green-600">Record Sale</button>
+  </div>
+
+
+  <!-- Add Stock Modal -->
+ <div id="addStockModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white w-11/12 max-w-sm p-4 rounded shadow">
+      <h2 class="text-lg font-bold mb-4 text-gray-800">Add New Stock Item</h2>
+      <input id="productName" type="text" placeholder="Product Name" class="border p-2 w-full mb-2 rounded" />
+      <input id="productQty" type="number" placeholder="Quantity" class="border p-2 w-full mb-2 rounded" />
+      <input id="buyingPrice" type="number" placeholder="Buying Price" class="border p-2 w-full mb-2 rounded" />
+      <input id="sellingPrice" type="number" placeholder="Selling Price" class="border p-2 w-full mb-2 rounded" />
+      <div class="flex justify-between mt-4">
+        <button onclick="closeAddStock()" class="btn bg-gray-600">Cancel</button>
+        <button onclick="addStock()" class="btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Record Sale Modal -->
+ <div id="recordSaleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white w-11/12 max-w-sm p-4 rounded shadow">
+      <h2 class="text-lg font-bold mb-4 text-gray-800">Record Sale</h2>
+      <select id="saleProduct" class="border p-2 w-full mb-2 rounded"></select>
+      <input id="saleQty" type="number" placeholder="Quantity Sold" class="border p-2 w-full mb-2 rounded" />
+      <div class="flex justify-between mt-4">
+        <button onclick="closeRecordSale()" class="btn bg-gray-600">Cancel</button>
+        <button onclick="recordSale()" class="btn">Record</button>
+      </div>
+    </div>
+  </div>
+
+<!-- //report -->
+<section class="mb-4 bg-white p-4 rounded shadow">
+  <h2 class="text-lg font-bold mb-4 text-gray-800">Stock Report & Update</h2>
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b">
+        <th class="border-b text-left py-2 px-2">Product</th>
+        <th class="border-b text-left py-2 px-2">Current Quantity</th>
+        <th class="border-b text-left py-2 px-2">Increase Quantity</th>
+      </tr>
+    </thead>
+    <tbody id="stockReport">
+      <!-- rows will be dynamically populated -->
+    </tbody>
+  </table>
+</section>
+ <!-- Import CSV -->
+  <section class="mb-4 bg-white p-4 rounded shadow">
+    <h2 class="text-lg font-bold mb-2 text-gray-800">Import Stock CSV</h2>
+    <p class="text-sm text-gray-600 mb-2">Select a previously exported CSV file to restore your stock data.</p>
+    <label class="flex flex-col items-center px-4 py-6 bg-gray-100 rounded-lg shadow-lg tracking-wide uppercase border border-blue-500 cursor-pointer hover:bg-blue-500 hover:text-white">
+      <svg class="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+        <path d="M16.88 9.94a.75.75 0 00-1.06 0l-4.72 4.72V3.75a.75.75 0 00-1.5 0v10.91l-4.72-4.72a.75.75 0 10-1.06 1.06l6 6a.75.75 0 001.06 0l6-6a.75.75 0 000-1.06z"/>
+      </svg>
+      <span class="mt-2 text-base leading-normal">Select CSV File</span>
+      <input type="file" accept=".csv" onchange="importCSV(event)" class="hidden" />
+    </label>
+  </section>
+
+
+ <script>
+  let stock = JSON.parse(localStorage.getItem('stock')) || [];
+  let sales = JSON.parse(localStorage.getItem('sales')) || [];
+
+  // Initial dashboard update on page load
+  updateDashboard();
+  document.addEventListener('DOMContentLoaded', () => {
+      updateDashboard();
+      updateProfit();
+      updateStockReport();
+    });
+
+  function showAddStock() {
+  document.getElementById('addStockModal').classList.remove('hidden');
+}
+
+function closeAddStock() {
+  document.getElementById('addStockModal').classList.add('hidden');
+}
+
+function showRecordSale() {
+  updateSaleOptions();
+  document.getElementById('recordSaleModal').classList.remove('hidden');
+}
+
+function closeRecordSale() {
+  document.getElementById('recordSaleModal').classList.add('hidden');
+}
+
+
+  function saveData() {
+    localStorage.setItem('stock', JSON.stringify(stock));
+    localStorage.setItem('sales', JSON.stringify(sales));
+  }
+
+
+  function addStock() {
+    const name = document.getElementById('productName').value.trim();
+    const qty = parseInt(document.getElementById('productQty').value);
+    const buyingPrice = parseFloat(document.getElementById('buyingPrice').value);
+    const sellingPrice = parseFloat(document.getElementById('sellingPrice').value);
+
+    if (!name || !qty || qty < 1 || !buyingPrice || !sellingPrice) {
+      alert('Enter valid product details including prices');
+      return;
+    }
+
+    const stock = JSON.parse(localStorage.getItem('stock')) || [];
+    const existingIndex = stock.findIndex(item => item.name.toLowerCase() === name.toLowerCase());
+
+    if (existingIndex > -1) {
+      stock[existingIndex].qty += qty;
+      stock[existingIndex].buyingPrice = buyingPrice;
+      stock[existingIndex].sellingPrice = sellingPrice;
+    } else {
+      stock.push({ name, qty, buyingPrice, sellingPrice });
+    }
+
+    localStorage.setItem('stock', JSON.stringify(stock));
+
+    updateDashboard();
+    updateStockReport();
+    updateSaleOptions();
+
+    // Clear inputs and close popup
+    document.getElementById('productName').value = '';
+    document.getElementById('productQty').value = '';
+    document.getElementById('buyingPrice').value = '';
+    document.getElementById('sellingPrice').value = '';
+    closeAddStock();
+  }
+
+
+  function recordSale() {
+    const productName = document.getElementById('saleProduct').value;
+    const qtySold = parseInt(document.getElementById('saleQty').value);
+
+    if (!productName || !qtySold || qtySold < 1) {
+      alert('Enter valid sale details');
+      return;
+    }
+
+    const stock = JSON.parse(localStorage.getItem('stock')) || [];
+    const index = stock.findIndex(item => item.name === productName);
+
+    if (index === -1 || !stock[index]) {
+      alert('Product not found in stock');
+      return;
+    }
+
+    if (qtySold > stock[index].qty) {
+      alert('Not enough stock to record this sale');
+      return;
+    }
+
+    const buyingPrice = stock[index].buyingPrice;
+    const sellingPrice = stock[index].sellingPrice;
+    const profit = (sellingPrice - buyingPrice) * qtySold;
+
+    stock[index].qty -= qtySold;
+    localStorage.setItem('stock', JSON.stringify(stock));
+
+    const sales = JSON.parse(localStorage.getItem('sales')) || [];
+    sales.push({ product: productName, qty: qtySold, date: new Date().toISOString(), profit });
+    localStorage.setItem('sales', JSON.stringify(sales));
+
+    updateDashboard();
+    updateStockReport();
+    updateSaleOptions();
+    updateProfit();
+
+    // Clear inputs and close popup
+    document.getElementById('saleQty').value = '';
+    closeRecordSale();
+  }
+
+
+
+
+    function updateSaleOptions() {
+      const select = document.getElementById('saleProduct');
+      select.innerHTML = '';
+
+      const stock = JSON.parse(localStorage.getItem('stock')) || [];
+      stock.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name; // store clean name as value
+        option.textContent = `${item.name} (${item.qty} available)`;
+        select.appendChild(option);
+      });
+    }
+
+  function updateDashboard() {
+    document.getElementById('totalItems').innerText = stock.length;
+    const today = new Date().toLocaleDateString();
+    const todayTotal = sales
+      .filter(s => new Date(s.time).toLocaleDateString() === today)
+      .reduce((sum, s) => sum + s.total, 0);
+    document.getElementById('todaysSales').innerText = todayTotal.toFixed(2);
+  }
+
+  function exportData() {
+    let csv = 'Product,Quantity,Buying Price,Selling Price\n';
+    stock.forEach(s => {
+      csv += `${s.name},${s.qty},${s.buying},${s.selling}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stock.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function shareWhatsApp() {
+    let message = 'Stock Report:\n';
+    stock.forEach(s => {
+      message += `${s.name}: ${s.qty} items\n`;
+    });
+    const encoded = encodeURIComponent(message);
+    document.getElementById('whatsappShare').href = `https://wa.me/?text=${encoded}`;
+  }
+
+  setInterval(shareWhatsApp, 5000); // Update WhatsApp link periodically
+  // Register service worker
+   if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(() => console.log('Service Worker registered'));
+    }
+
+  function importCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      const rows = text.split('\n').slice(1); // skip header
+      rows.forEach(row => {
+        const [name, qty, buying, selling] = row.split(',');
+        if (name && qty && buying && selling) {
+          stock.push({
+            name: name.trim(),
+            qty: parseInt(qty.trim()),
+            buying: parseFloat(buying.trim()),
+            selling: parseFloat(selling.trim())
+          });
+        }
+      });
+      saveData();
+      updateDashboard();
+      alert('Stock imported successfully!');
+    };
+    reader.readAsText(file);
+  }
+  function updateStockReport() {
+    const tbody = document.getElementById('stockReport');
+    tbody.innerHTML = ''; // clear previous rows
+
+    const stock = JSON.parse(localStorage.getItem('stock')) || [];
+    stock.forEach((item, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="border-b py-2 px-2">${item.name}</td>
+        <td class="border-b py-2 px-2">${item.qty}</td>
+        <td class="border-b py-2 px-2">
+          <input type="number" id="addQty-${index}" class="border p-1 rounded w-20" placeholder="0" min="1" />
+          <button onclick="increaseQty(${index})" class="btn ml-2">Add</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+  function increaseQty(index) {
+    const input = document.getElementById(`addQty-${index}`);
+    const addAmount = parseInt(input.value);
+
+    if (!addAmount || addAmount < 1) {
+      alert('Enter a valid quantity to add');
+      return;
+    }
+
+    const stock = JSON.parse(localStorage.getItem('stock')) || [];
+    stock[index].qty += addAmount;
+    localStorage.setItem('stock', JSON.stringify(stock));
+
+    updateStockReport(); // refresh report table
+    updateDashboard(); // refresh dashboard
+    updateSaleOptions(); // refresh record sale popup options
+
+    input.value = ''; // clear input
+  }
+ function updateProfit() {
+  const sales = JSON.parse(localStorage.getItem('sales')) || [];
+  console.log(sales);
+  const totalProfit = sales.reduce((acc, sale) => acc + sale.profit, 0);
+
+  document.getElementById('profit').textContent = totalProfit.toFixed(2);
+}
+
+function exportCSV() {
+  const stock = JSON.parse(localStorage.getItem('stock')) || [];
+  const sales = JSON.parse(localStorage.getItem('sales')) || [];
+
+  let csvContent = 'Stock Report\nProduct,Quantity,Buying Price,Selling Price\n';
+  stock.forEach(item => {
+    csvContent += `${item.name},${item.qty},${item.buyingPrice},${item.sellingPrice}\n`;
+  });
+
+  csvContent += '\nSales Report\nProduct,Quantity,Date,Profit\n';
+  sales.forEach(sale => {
+    csvContent += `${sale.product},${sale.qty},${sale.date},${sale.profit}\n`;
+  });
+
+  // Download logic
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'report.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  return csvContent; // return for sharing
+}
+function shareCSV() {
+  const csvContent = exportCSV(); // get the current CSV string
+
+  const whatsappURL = `https://wa.me/?text=${encodeURIComponent(csvContent)}`;
+
+  window.open(whatsappURL, '_blank');
+}
+
+
+
+</script>
+
+</body>
+</html>
